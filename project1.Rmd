@@ -1,0 +1,70 @@
+---
+title: "Statsc283-project1"
+author: "Juan Piao"
+date: "4/1/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## b.Import the data in R and convert the adjusted close prices into returns. (Use the first 5-year data only!)
+```{r}
+#Read your csv file:
+a <- read.csv("stockData.csv", sep=",", header=TRUE)
+#Convert adjusted close prices into returns:
+r <- (a[-1,3:ncol(a)]-a[-nrow(a),3:ncol(a)])/a[-nrow(a),3:ncol(a)]
+```
+
+
+## c. Compute the means of the 31 assets, the standard deviations, and the variance covariance matrix.
+```{r}
+#Compute mean vector:
+means <- colMeans(r)  #Without ^GSPC
+
+#Compute variance covariance matrix:
+covmat <- cov(r)  #Without ^GSPC
+
+#Compute the vector of variances:
+variances <- diag(covmat)
+#Compute the vector of standard deviations:
+stdev <- diag(covmat)^.5
+
+```
+
+
+## d.Plot the 31 assets on the space expected return against standard deviation.
+```{r}
+plot(stdev, means, col="lightblue", pch=19, cex=2)
+text(stdev, means, labels=names(means))
+```
+
+## e. Assume equal allocation portfolio using the 30 stocks. Compute the mean and standard deviation of this portfolio and add it on the plot of question (c).
+```{r}
+equal_portfolio_mean<-sum(means[-1])/30.   # without SGPC
+equal_portfolio_sd<-sqrt(sum(variances[-1])/900)
+plot(stdev, means, col="lightblue", pch=19, cex=2, xlim=c(0, 0.3))
+text(stdev, means, labels=names(means))
+points(equal_portfolio_sd, equal_portfolio_mean, col="green", pch=19, cex=2)
+```
+
+
+## f.Add on the plot the minimum risk portfolio. 
+```{r}
+#Compute mean vector or 30 stocks:
+means_30 <- colMeans(r[-1])  #Without ^GSPC
+
+#Compute variance covariance matrix:
+covmat_30 <- cov(r[-1])  #Without ^GSPC
+ones<-rep(1, 30)
+
+min_sd<- sqrt(1/(t(ones) %*% solve(covmat_30) %*% ones))
+expected_return<-  (t(ones) %*% solve(covmat_30) %*% means_30)  /(t(ones) %*% solve(covmat_30) %*% ones)
+ plot(stdev, means, col="lightblue", pch=19, cex=2, xlim=c(0, 0.3))
+text(stdev, means, labels=names(means))
+points(equal_portfolio_sd, equal_portfolio_mean, col="green", pch=19, cex=2)
+points(min_sd, expected_return, col="red", pch=19, cex=2)
+```
+
+### (The red dot represents the minimum risk portfolio)

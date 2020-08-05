@@ -1,0 +1,497 @@
+---
+title: "Project5"
+author: "Juan Piao"
+date: "5/8/2020"
+output: 
+  pdf_document: 
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## a. Assume the single index model holds. Use only the stocks with positive betas in your data. Choose a value of Rf and find the optimal portfolio (point of tangency) using the optimization procedure as discussed in handout #17: 
+
+### From Project 4, I discovered there is one stock that has negative beta, so I removed it from the data set.
+```{r}
+#Read your csv file:
+a <- read.csv("stockData.csv", sep=",", header=TRUE)
+#Convert adjusted close prices into returns:
+r1 <- (a[-1,3:ncol(a)]-a[-nrow(a),3:ncol(a)])/a[-nrow(a),3:ncol(a)]
+r1<- r1[ , -22]
+```
+
+```{r}
+#regressing each stock’s return on the S&P 500.
+beta1 <- rep(0,29)
+
+alpha1 <- rep(0,29)
+
+sigma_e1 <- rep(0,29)
+
+var_beta1 <- rep(0,29)
+
+for(i in 1:29){
+	q <- lm(data=r1, formula=r1[,i+1] ~ r1[,1])
+	beta1[i] <- q$coefficients[2] 
+	alpha1[i] <- q$coefficients[1] 
+	sigma_e1[i] <- summary(q)$sigma^2
+	var_beta1[i] <- vcov(q)[2,2] 
+}
+
+data<-as.data.frame( cbind(seq(1:29) ,beta1, alpha1, sigma_e1))
+colnames(data)[1]<-"stock"
+```
+
+From the above regression result we can see all the betas are positive.
+
+### Construct the variance covariance matrix based on the single index model.
+
+```{r}
+covmat <- cov(r1)  #With ^GSPC
+
+var_market<-covmat[1,1]
+covmat29 <- var_market * beta1 %*% t(beta1)
+diag(covmat29) <- diag(covmat29)+ sigma_e1
+## standard deviation of 29 sotcks
+sd_29<-sqrt(diag(covmat)[2:30])
+## compute rho
+rho<-(sum(cor(r1[, -1]))-29)/(29*28)
+#rho
+```
+
+### Compute the Point of tangency(short sales allowed):
+
+```{r}
+#===================================
+#===================================
+
+#Choose risk-free return:
+Rf <- 0.005
+
+#Compute the means:
+means <- colMeans(r1[ , -1])
+
+#Point of tangency:
+R <- means-Rf
+z <- solve(covmat29) %*% R
+
+xx <- z/sum(z)
+# means and sd of the optimal portfolio
+rr <- t(xx) %*% means
+varr <- t(xx) %*% covmat29 %*% xx
+sdev <- varr^.5
+
+#points(sdev, rr, pch=19)
+```
+
+## b. Use only the stocks with positive betas in your data. Rank the stocks based on the excess return to beta ratio and complete the entire table based on handout :
+
+```{r}
+### construct the table
+data$means<-means
+data$V5 <- (data$means- Rf)/data$beta1
+### Sort the table based on the excess return to beta ratio:
+data <- data[ order(-data$V5), ]
+## Step 3: Create 5 columns to the right of the sorted table as follows:
+data$K <- (data$means- Rf)* data$beta1/data$sigma_e1
+data$L <- data$beta1^2/data$sigma_e1
+data$sumK<-rep(0, length(data$means))
+data$sumL<-rep(0, length(data$means))
+for (i in 1: 29){
+  data$sumK[i] <- sum(data$K[1:i])
+  data$sumL[i] <- sum(data$L[1:i])
+}  
+
+data$C <- var_market * data$sumK /(1 + var_market* data$sumL)
+#data
+```
+
+## c. Find the composition of the point of tangency with and without short sales allowed. Place the two portfolios on the plot with the 30 stocks, S&P500, and the efficient frontier that you constructed in the previous projects.
+
+### If short sales are allowed, C_star is the last element in the last column.
+
+```{r}
+data$Z1 <- data$beta1/data$sigma_e1 *(data$V5-data$C[29])
+data$X1<- data$Z1 / sum(data$Z1)  ## short sales are allowed.
+
+
+```
+
+### If short sales are not allowed 
+```{r}
+C_star <- data$C[max(which(data$V5 >data$C))]
+
+data$Z2 <- data$beta1/data$sigma_e1 *(data$V5 - C_star)
+data$Z2<- ifelse(data$Z2>0, data$Z2, 0)
+data$X2<-rep(0, 29)
+data$X2 <- data$Z2/sum(data$Z2)
+
+### Sort the table by stock number
+data <- data[order(data$stock), ]
+
+# means and sd of the optimal portfolio when short sales are allowed
+rr1 <- t(data$X1) %*% data$means
+varr1 <- t(data$X1) %*% covmat29 %*% data$X1
+sdev1 <- varr1^.5
+
+
+# means and sd of the optimal portfolio when short sales are not allowed
+rr2 <- t(data$X2) %*% data$means
+varr2 <- t(data$X2) %*% covmat29 %*% data$X2
+sdev2 <- varr2^.5
+
+```
+
+
+```{r, echo=FALSE}
+## Use 30 stocks and S&P 500
+#Convert adjusted close prices into returns:
+r1 <- (a[-1,3:ncol(a)]-a[-nrow(a),3:ncol(a)])/a[-nrow(a),3:ncol(a)]
+
+```
+
+### Plots using historical data
+```{r, echo=FALSE}
+
+#regressing each stock’s return on the S&P 500.
+beta1 <- rep(0,30)
+
+alpha1 <- rep(0,30)
+
+sigma_e1 <- rep(0,30)
+
+var_beta1 <- rep(0,30)
+
+for(i in 1:30){
+	q <- lm(data=r1, formula=r1[,i+1] ~ r1[,1])
+	beta1[i] <- q$coefficients[2] 
+	alpha1[i] <- q$coefficients[1] 
+	sigma_e1[i] <- summary(q)$sigma^2
+	var_beta1[i] <- vcov(q)[2,2] 
+}
+
+
+covmat <- cov(r1)  #With ^GSPC
+
+var_market<-covmat[1,1]
+covmat1 <- var_market * beta1 %*% t(beta1)
+diag(covmat1) <- diag(covmat1)+ sigma_e1
+
+#covmat1
+```
+
+### part c)-f) code is shown below:
+```{r, warning=FALSE}
+
+#Compute mean vector:
+means <- colMeans(r1)  #With ^GSPC
+
+#Compute the vector of standard deviations:
+stdev <- diag(covmat)^.5
+
+ones <- rep(1, 30)
+
+
+#Composition of minimum risk portfolio:
+x1 <- ( solve(covmat[2:31, 2:31]) %*% ones ) / as.numeric( t(ones) %*% solve(covmat[2:31, 2:31]) %*% ones )
+
+#Mean:
+m1 <- t(x1) %*% means[2:31]
+
+#Variance:
+v1 <- t(x1) %*% covmat[2:31, 2:31] %*% x1
+
+
+
+#Compute A:
+A <- t(ones) %*% solve(covmat[2:31, 2:31]) %*% means[2:31]
+
+
+#Compute B:
+B <- t(means[2:31]) %*% solve(covmat[2:31, 2:31]) %*% means[2:31]
+
+
+#Compute C:
+C <- t(ones) %*% solve(covmat[2:31, 2:31]) %*% ones
+
+
+#Compute D:
+D <- B*C - A^2
+
+#Portfolio 2:  (It doesn't have to be efficient, as long as it is on the frontier).
+#Need to choose a value of E.  Let's say, E=0.015.
+#To find x2 we use our class notes (see week 2 - lecture 1 notes):
+#x2=lambda1*Sigma^-1*means + lambda2*Sigma^-1*ones
+#lambda1 = (CE-A)/D and lambda2=(B-AE)/D.
+
+E <- 0.03
+lambda1 <- (C*E-A)/D
+lambda2 <- (B-A*E)/D
+
+x2=as.numeric(lambda1)*solve(covmat[2:31, 2:31]) %*% means[2:31] + 
+as.numeric(lambda2)* solve(covmat[2:31, 2:31]) %*% ones
+
+#Mean:
+m2 <- t(x2) %*% means[2:31]
+
+#Variance:
+v2 <- t(x2) %*% covmat[2:31, 2:31] %*% x2
+
+#We also need the covariance between portfolio 1 and portfolio 2:
+cov_ab <- t(x1) %*% covmat[2:31, 2:31] %*% x2
+
+#Now we have two portfolios on the frontier.  We can combine them to trace out the entire frontier:
+#Let a be the proportion of investor's wealth invested in portfolio 1.
+#Let b be the proportion of investor's wealth invested in portfolio 2.
+
+a <- seq(-3,3,.1)
+b <- 1-a
+
+r_ab <- a*m1 + b*m2
+
+var_ab <- a^2*v1 + b^2*v2 + 2*a*b*cov_ab
+sd_ab <- var_ab^.5
+
+#Give values for E:
+E <- seq(-5,5,.1)
+
+#Compute sigma2 as a function of A,B,C,D, and E:
+#sigma2 <- (C*E^2 - 2*A*E +B) /D
+
+
+plot(0, A/C, main = "Portfolio possibilities curve", xlab = "Risk (standard deviation)",
+  ylab = "Expected Return", type = "n",
+  xlim = c(-2*sqrt(1/C), 10*sqrt(1/C)), 
+  ylim = c(-2*A/C, 5*A/C))
+  
+#Plot center of the hyperbola:
+    points(0, A/C, pch = 19)
+
+#Plot transverse and conjugate axes:
+    abline(v = 0) #Also this is the y-axis.
+    abline(h = A/C, col="red")
+
+#Plot the x-axis:
+    abline(h = 0)
+    
+#Plot the minimum risk portfolio:
+    points(sqrt(1/C), A/C, pch=19)
+    
+#Find the asymptotes:
+    V <- seq(-1, 1, 0.001)
+    A1 <- A/C + V * sqrt(D/C)
+    A2 <- A/C - V * sqrt(D/C)
+    points(V, A1, type = "l")
+    points(V, A2, type = "l")
+
+#Efficient frontier:
+    minvar <- 1/C
+    minE <- A/C
+    sdeff <- seq((minvar)^0.5, 1, by = 0.0001)
+    options(warn = -1)
+    y1 <- (A + sqrt(D*(C*sdeff^2 - 1)))*(1/C) 
+    y2 <- (A - sqrt(D*(C*sdeff^2 - 1)))*(1/C) 
+    options(warn = 0)
+
+    points(sdeff, y1, type = "l")
+    points(sdeff, y2, type = "l")
+    
+    
+points(sd_ab, r_ab, col="purple")
+
+
+
+##################################################################################    
+# compute A,B,C, D for single index model
+    
+#Compute A:
+A1 <- t(ones) %*% solve(covmat1) %*% means[2: 31]
+
+
+#Compute B:
+B1 <- t(means[2: 31]) %*% solve(covmat1) %*% means[2: 31]
+
+
+#Compute C:
+C1 <- t(ones) %*% solve(covmat1) %*% ones
+
+
+#Compute D:
+D1 <- B1*C1 - A1^2    
+    
+#Efficient frontier from SIM:
+    minvar1 <- 1/C1
+    minE1 <- A1/C1
+    sdeff1 <- seq((minvar1)^0.5, 1, by = 0.0001)
+    options(warn = -1)
+    y1 <- (A1 + sqrt(D1*(C1*sdeff1^2 - 1)))*(1/C1) 
+    y2 <- (A1 - sqrt(D1*(C1*sdeff1^2 - 1)))*(1/C1) 
+    options(warn = 0)
+
+    points(sdeff1, y1, type = "l", col="blue")
+    points(sdeff1, y2, type = "l", col="blue")
+    
+#Plot the minimum risk portfolio:
+    points(sqrt(1/C1), A1/C1, pch=19)    
+    
+##### get two points on the frontier
+    
+#Composition of minimum risk portfolio:
+x3 <- ( solve(covmat1) %*% ones ) / as.numeric( t(ones) %*% solve(covmat1) %*% ones )
+
+#Mean:
+m3 <- t(x3) %*% means[2:31]
+
+#Variance:
+v3 <- t(x3) %*% covmat1 %*% x3
+
+
+#Portfolio 2:  
+#To find x2 we use our class notes (see week 2 - lecture 1 notes):
+#x2=lambda1*Sigma^-1*means + lambda2*Sigma^-1*ones
+#lambda1 = (CE-A)/D and lambda2=(B-AE)/D.
+
+E <- 0.03
+lambda1 <- (C1*E-A1)/D1
+lambda2 <- (B1-A1*E)/D1
+
+x4=as.numeric(lambda1)*solve(covmat1) %*% means[2:31] + 
+as.numeric(lambda2)* solve(covmat1) %*% ones
+
+#Mean:
+m4 <- t(x4) %*% means[2:31]
+
+#Variance:
+v4 <- t(x4) %*% covmat1 %*% x4
+
+#We also need the covariance between portfolio 1 and portfolio 2:
+cov_ab1 <- t(x3) %*% covmat1 %*% x4
+
+
+#Now we have two portfolios on the frontier.  We can combine them to trace out the entire frontier:
+#Let a be the proportion of investor's wealth invested in portfolio 1.
+#Let b be the proportion of investor's wealth invested in portfolio 2.
+
+r_ab1 <- a*m3 + b*m4
+
+var_ab1 <- a^2*v3 + b^2*v4 + 2*a*b*cov_ab1
+sd_ab1 <- var_ab1^.5
+
+points(sd_ab1, r_ab1, col="peru")
+
+
+
+### d. We want now to draw the efficient frontier when short sale are not allowed. One way to this is to use a for loop where you vary Rf . For each Rf you find the composition of the optimal portfolio (tangency point) and its expected return and standard deviation. Finally connect the points to draw the efficient frontier.
+
+Rf_list<-seq(-0.05,.02,0.0005)
+Rf_list<- c(seq(-0.1, 0.02, 0.002), seq(0.02,0.04, 0.0005))
+sd_list<- rep(0, length(Rf_list))
+rr_list<- rep(0, length(Rf_list))
+
+for(i in 1:length(Rf_list)){
+  Rf<-Rf_list[i]
+  #print(i)
+  data$V5 <- (data$means - Rf)/data$beta1
+  ### Sort the table based on the excess return to beta ratio:
+  data <- data[ order(-data$V5), ]
+  ## Step 3: Create 5 columns to the right of the sorted table as follows:
+  data$K <- (data$means- Rf)* data$beta1/data$sigma_e1
+  data$L <- data$beta1^2/data$sigma_e1
+  data$sumK<-rep(0, length(data$means))
+  data$sumL<-rep(0, length(data$means))
+  for (j in 1: 29){
+    data$sumK[j] <- sum(data$K[1:j])
+    data$sumL[j] <- sum(data$L[1:j])
+  }  
+  
+  data$C <- var_market * data$sumK /(1 + var_market* data$sumL)
+
+  C_star <- data$C[max(which(data$V5 >data$C))]
+  
+  data$Z2 <- data$beta1/data$sigma_e1 *(data$V5 - C_star)
+  data$Z2<- ifelse(data$Z2>0, data$Z2, 0)
+  data$X2<-rep(0, 29)
+  data$X2 <- data$Z2/sum(data$Z2)
+  
+  ### Sort the table by stock number
+  data <- data[order(data$stock), ]
+
+  # means and sd of the optimal portfolio when short sales are not allowed
+  rr_list[i] <- t(data$X2) %*% data$means
+  varr2 <- t(data$X2) %*% covmat29 %*% data$X2
+  sd_list[i] <- varr2^.5
+  
+  #print(data)
+
+}
+points(sd_list, rr_list, type="l", col="seagreen4")
+
+points(sdev1, rr1, col="brown4", pch=19) # short sales allowed for single index model
+points(sdev2, rr2, col="violetred", pch=19) # short sales not allowed for single index model
+
+#########################################################################
+### constant correltaion  ###############################################
+#########################################################################
+Rf <- 0.005
+data_cor<-as.data.frame( cbind(seq(1:29) ,data$means, data$means-Rf, sd_29) )
+names(data_cor)[1:3]<-c("stocks", "means", "means-Rf")
+ratio<-data_cor$`means-Rf`/sd_29
+data_cor<-cbind(data_cor, ratio)
+
+## Sort the table above based on the excess return to standard deviation ratio:
+data_cor <- data_cor[ order(-data_cor$ratio), ]
+
+stock_i<- 1:29
+data_cor$Col1<- rho/(1-rho + stock_i*rho)
+
+  for (j in 1: 29){
+    data_cor$Col2[j] <- sum(data_cor$ratio[1:j])
+  }  
+data_cor$C <- data_cor$Col1 * data_cor$Col2
+
+### If short sales are allowed, C∗ is the last element in the last column.
+C_star<-data_cor$C[29]
+
+data_cor$Z1<- 1/((1-rho)* data_cor$sd_29) *(data_cor$ratio - C_star)
+data_cor$X1 <- data_cor$Z1/sum(data_cor$Z1)
+
+
+### If short sales are not allowed, C∗ is the last element in the last column.
+C_star <- data_cor$C[max(which(data_cor$ratio >data_cor$C))]
+data_cor$Z2 <- 1/((1-rho)* data_cor$sd_29) *(data_cor$ratio - C_star)
+data_cor$Z2<- ifelse(data_cor$Z2>0, data_cor$Z2, 0)
+data_cor$X2<-rep(0, 29)
+data_cor$X2 <- data_cor$Z2/sum(data_cor$Z2)
+
+### Sort the table by stock number
+data_cor <- data_cor[order(data_cor$stock), ]
+
+  # means and sd of the optimal portfolio when short sales are allowed
+  rr_cor1 <- t(data_cor$X1) %*% data_cor$means
+  varr1 <- t(data_cor$X1) %*% covmat29 %*% data$X1
+  sd_cor1 <- varr1^.5
+
+  # means and sd of the optimal portfolio when short sales are not allowed
+  rr_cor2 <- t(data_cor$X2) %*% data_cor$means
+  varr2 <- t(data_cor$X2) %*% covmat29 %*% data_cor$X2
+  sd_cor2 <- varr2^.5
+  
+
+points(sd_cor1, rr_cor1, col="green", pch=19) # short sales allowed for constant correlation model
+points(sd_cor2, rr_cor2, col="blue", pch=19) # short sales not allowed for constant correlation model
+
+
+```
+
+
+#### The efficient frontier when short sales are allowed obtained by using the historical variance covariance matrix is in black line overlapped with purple dots. 
+
+#### The efficient frontier when short sales are allowed obtained by using the variance covariance matrix with inputs from the single index model is in blue line overlapped with yellow dots. The brown dot on this efficient frontier is the point of tangency when short sales are allowed with Rf of 0.005(answer for part3).
+
+#### The efficient frontier when short sales are not allowed is shown above in a green line.The hotpink dot on this efficient frontier is the point of tangency when short sales allowed with Rf of 0.005(answer for part3).
+
+#### The lightgreen dot is the point of tangency when short sales allowed with Rf is 0.005 assuming constant correlation holds. We can see that it's roughly on the efficient frontier obtained by using the single index model when short sales are allowed. 
+
+#### The blue dot is the point of tangency when short sales not allowed with Rf is 0.005 assuming constant correlation holds. We can see that it's roughly on the efficient frontier obtained by using the single index model when short sales are not allowed.
